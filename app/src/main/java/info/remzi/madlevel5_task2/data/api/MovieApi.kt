@@ -1,6 +1,6 @@
 package info.remzi.madlevel5_task2.data.api
 
-import io.github.cdimascio.dotenv.dotenv
+import info.remzi.madlevel5_task2.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -9,19 +9,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 object MovieApi {
     private const val BASE_URL = "https://api.themoviedb.org/3/"
 
-    // Load .env (if present) into system properties once.
-    private val _dotenv = dotenv {
-        ignoreIfMissing = true
-    }.also { env ->
-        env.entries().forEach { entry ->
-            System.setProperty(entry.key, entry.value)
-        }
-    }
-
     private val tmdbToken: String by lazy {
-        System.getenv("TMDB_TOKEN")
-            ?: System.getProperty("TMDB_TOKEN")
-            ?: error("TMDB_TOKEN not set")
+        BuildConfig.TMDB_TOKEN.takeIf { it.isNotBlank() }
+            ?: error("TMDB_TOKEN not set in BuildConfig, check apikey.properties")
     }
 
     private val client: OkHttpClient by lazy {

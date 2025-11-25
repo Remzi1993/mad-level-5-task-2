@@ -5,7 +5,6 @@ import info.remzi.madlevel5_task2.data.api.MovieApi
 import info.remzi.madlevel5_task2.data.model.Movie
 
 class MoviesRepository {
-
     private val api = MovieApi.service
 
     suspend fun searchMovies(query: String): Resource<List<Movie>> {

@@ -1,4 +1,14 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+val apiKeyPropsFile = rootProject.file("local.properties")
+val apiKeyProps = Properties().apply {
+    if (apiKeyPropsFile.exists()) {
+        load(apiKeyPropsFile.inputStream())
+    }
+}
+
+val tmdbToken = apiKeyProps.getProperty("TMDB_TOKEN") ?: ""
 
 plugins {
     alias(libs.plugins.android.application)
@@ -20,6 +30,8 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "TMDB_TOKEN", "\"$tmdbToken\"")
     }
 
     buildTypes {
@@ -39,6 +51,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
