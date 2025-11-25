@@ -2,15 +2,20 @@ package info.remzi.madlevel5_task2.repository
 
 import info.remzi.madlevel5_task2.data.Resource
 import info.remzi.madlevel5_task2.data.api.MovieApi
-import info.remzi.madlevel5_task2.data.local.FavoriteMovieDao
-import info.remzi.madlevel5_task2.data.local.FavoriteMovieEntity
+import info.remzi.madlevel5_task2.data.local.MovieDao
+import info.remzi.madlevel5_task2.data.local.MovieEntity
+import info.remzi.madlevel5_task2.data.local.toEntity
 import info.remzi.madlevel5_task2.data.model.Movie
 import kotlinx.coroutines.flow.Flow
 
 class MoviesRepository(
-    private val favoriteMovieDao: FavoriteMovieDao
+    private val movieDao: MovieDao
 ) {
     private val api = MovieApi.service
+
+    fun favoriteMovies(): Flow<List<MovieEntity>> {
+        return movieDao.getFavoriteMovies()
+    }
 
     suspend fun searchMovies(query: String): Resource<List<Movie>> {
         return try {
@@ -19,47 +24,28 @@ class MoviesRepository(
                 Resource.Empty()
             } else {
                 val response = api.searchMovies(trimmed)
-                Resource.Success(response.results)
+                val movies = response.results
+
+                // Cache results locally too, while preserving favorites
+                val entities = movies.map { movie ->
+                    val existing = movieDao.getById(movie.id)
+                    movie.toEntity(isFavorite = existing?.isFavorite ?: false)
+                }
+                movieDao.insertAll(entities)
+
+                Resource.Success(movies)
             }
         } catch (e: Exception) {
             Resource.Error("Failed to load movies", e)
         }
     }
 
-    fun getFavoriteMovies(): Flow<List<FavoriteMovieEntity>> {
-        return favoriteMovieDao.getFavoriteMovies()
-    }
-
     suspend fun toggleFavorite(movie: Movie) {
-        val existing = favoriteMovieDao.getById(movie.id)
+        val existing = movieDao.getById(movie.id)
         if (existing != null) {
-            favoriteMovieDao.delete(existing)
+            movieDao.insert(existing.copy(isFavorite = !existing.isFavorite))
         } else {
-            favoriteMovieDao.insert(movie.toEntity())
+            movieDao.insert(movie.toEntity(isFavorite = true))
         }
     }
-}
-
-private fun Movie.toEntity(): FavoriteMovieEntity {
-    return FavoriteMovieEntity(
-        id = id,
-        title = title,
-        overview = overview,
-        posterPath = posterPath,
-        backdropPath = backdropPath,
-        releaseDate = releaseDate,
-        voteAverage = voteAverage
-    )
-}
-
-fun FavoriteMovieEntity.toDomain(): Movie {
-    return Movie(
-        id = id,
-        title = title,
-        overview = overview,
-        posterPath = posterPath,
-        backdropPath = backdropPath,
-        releaseDate = releaseDate,
-        voteAverage = voteAverage
-    )
 }

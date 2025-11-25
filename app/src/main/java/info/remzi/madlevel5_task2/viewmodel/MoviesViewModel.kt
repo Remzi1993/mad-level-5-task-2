@@ -25,7 +25,7 @@ class MoviesViewModel(
 
     init {
         viewModelScope.launch {
-            repository.getFavoriteMovies().collect { entities ->
+            repository.favoriteMovies().collect { entities ->
                 _favoriteMovies.value = entities.map { it.toDomain() }
             }
         }
@@ -48,7 +48,8 @@ class MoviesViewModel(
         }
     }
 
-    fun isFavorite(movie: Movie): Boolean {
+    fun isFavorite(movie: Movie?): Boolean {
+        if (movie == null) return false
         return _favoriteMovies.value?.any { it.id == movie.id } == true
     }
 }

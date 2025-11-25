@@ -1,15 +1,23 @@
 package info.remzi.madlevel5_task2.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,8 +28,8 @@ import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -44,7 +52,7 @@ fun MovieOverviewScreen(
     viewModel: MoviesViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
-    val moviesResource = viewModel.moviesResource.observeAsState(Resource.Empty()).value
+    val moviesResource by viewModel.moviesResource.observeAsState(Resource.Empty())
 
     Column(
         modifier = Modifier
@@ -65,10 +73,9 @@ fun MovieOverviewScreen(
             is Resource.Loading -> CenterMessage(stringResource(R.string.loading_text))
             is Resource.Error -> CenterMessage(stringResource(R.string.error_text))
             is Resource.Success -> {
-                val movies = moviesResource.data
+                val movies = (moviesResource as Resource.Success<List<Movie>>).data
                 MovieList(
                     movies = movies,
-                    viewModel = viewModel,
                     onMovieClick = onMovieClick
                 )
             }
@@ -95,6 +102,8 @@ fun SearchBarMovies(
 ) {
     val textState: TextFieldState = rememberTextFieldState()
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    // We intentionally never expand this into the full-screen suggestions mode.
     val expanded = false
 
     SearchBar(
@@ -113,7 +122,7 @@ fun SearchBarMovies(
                     keyboardController?.hide()
                 },
                 expanded = expanded,
-                onExpandedChange = {},
+                onExpandedChange = { /* no-op: always collapsed */ },
                 placeholder = { Text(stringResource(R.string.search_movie_hint)) },
                 leadingIcon = {
                     Icon(
@@ -148,7 +157,6 @@ fun SearchBarMovies(
 @Composable
 fun MovieList(
     movies: List<Movie>,
-    viewModel: MoviesViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
     LazyColumn(
@@ -157,13 +165,7 @@ fun MovieList(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(movies) { movie ->
-            val isFavorite = viewModel.isFavorite(movie)
-            MovieCard(
-                movie = movie,
-                isFavorite = isFavorite,
-                onToggleFavorite = { viewModel.toggleFavorite(movie) },
-                onClick = { onMovieClick(movie) }
-            )
+            MovieCard(movie = movie, onClick = { onMovieClick(movie) })
         }
     }
 }
@@ -171,8 +173,6 @@ fun MovieList(
 @Composable
 fun MovieCard(
     movie: Movie,
-    isFavorite: Boolean,
-    onToggleFavorite: () -> Unit,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -183,7 +183,7 @@ fun MovieCard(
             .fillMaxWidth()
             .clickable { onClick() }
     ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(modifier = Modifier.padding(12.dp)) {
             if (posterUrl != null) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -212,13 +212,6 @@ fun MovieCard(
                     text = movie.overview.orEmpty(),
                     maxLines = 4,
                     style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            IconButton(onClick = onToggleFavorite) {
-                Icon(
-                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                    contentDescription = null
                 )
             }
         }

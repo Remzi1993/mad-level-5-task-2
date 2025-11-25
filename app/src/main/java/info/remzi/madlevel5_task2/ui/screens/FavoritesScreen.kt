@@ -33,7 +33,6 @@ fun FavoritesScreen(
     } else {
         MovieList(
             movies = favorites,
-            viewModel = viewModel,
             onMovieClick = onMovieClick
         )
     }
