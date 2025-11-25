@@ -8,21 +8,20 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -45,55 +44,41 @@ fun MovieOverviewScreen(
     viewModel: MoviesViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
-    val moviesResource by viewModel.moviesResource.observeAsState(Resource.Empty())
+    val moviesResource = viewModel.moviesResource.observeAsState(Resource.Empty()).value
 
-    Scaffold(
-        topBar = {
-            // Search app bar area (opaque, full width)
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer,
-                tonalElevation = 0.dp,
-                shadowElevation = 4.dp
-            ) {
-                SearchBarMovies(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                    onSearch = { query -> viewModel.searchMovies(query) }
-                )
-            }
-        }
-    ) { innerPadding ->
-        Box(
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 8.dp)
+    ) {
+        SearchBarMovies(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            when (moviesResource) {
-                is Resource.Empty -> CenterMessage(stringResource(R.string.initial_text))
-                is Resource.Loading -> CenterMessage(stringResource(R.string.loading_text))
-                is Resource.Error -> CenterMessage(stringResource(R.string.error_text))
-                is Resource.Success -> {
-                    val movies = (moviesResource as Resource.Success<List<Movie>>).data
-                    MovieList(
-                        movies = movies,
-                        onMovieClick = onMovieClick
-                    )
-                }
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
+            onSearch = { query -> viewModel.searchMovies(query) }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        when (moviesResource) {
+            is Resource.Empty -> CenterMessage(stringResource(R.string.initial_text))
+            is Resource.Loading -> CenterMessage(stringResource(R.string.loading_text))
+            is Resource.Error -> CenterMessage(stringResource(R.string.error_text))
+            is Resource.Success -> {
+                val movies = moviesResource.data
+                MovieList(
+                    movies = movies,
+                    viewModel = viewModel,
+                    onMovieClick = onMovieClick
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CenterMessage(
-    text: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+private fun CenterMessage(text: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
             text = text,
             style = MaterialTheme.typography.bodyLarge,
@@ -110,8 +95,6 @@ fun SearchBarMovies(
 ) {
     val textState: TextFieldState = rememberTextFieldState()
     val keyboardController = LocalSoftwareKeyboardController.current
-
-    // Always collapsed – we just want the nice search field, not the full-screen overlay
     val expanded = false
 
     SearchBar(
@@ -130,7 +113,7 @@ fun SearchBarMovies(
                     keyboardController?.hide()
                 },
                 expanded = expanded,
-                onExpandedChange = { /* no-op */ },
+                onExpandedChange = {},
                 placeholder = { Text(stringResource(R.string.search_movie_hint)) },
                 leadingIcon = {
                     Icon(
@@ -156,17 +139,16 @@ fun SearchBarMovies(
             )
         },
         expanded = expanded,
-        onExpandedChange = { /* no-op */ },
+        onExpandedChange = {},
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
-    ) {
-        // No suggestions → no content
-    }
+    ) {}
 }
 
 @Composable
-private fun MovieList(
+fun MovieList(
     movies: List<Movie>,
+    viewModel: MoviesViewModel,
     onMovieClick: (Movie) -> Unit
 ) {
     LazyColumn(
@@ -175,7 +157,13 @@ private fun MovieList(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         items(movies) { movie ->
-            MovieCard(movie = movie, onClick = { onMovieClick(movie) })
+            val isFavorite = viewModel.isFavorite(movie)
+            MovieCard(
+                movie = movie,
+                isFavorite = isFavorite,
+                onToggleFavorite = { viewModel.toggleFavorite(movie) },
+                onClick = { onMovieClick(movie) }
+            )
         }
     }
 }
@@ -183,6 +171,8 @@ private fun MovieList(
 @Composable
 fun MovieCard(
     movie: Movie,
+    isFavorite: Boolean,
+    onToggleFavorite: () -> Unit,
     onClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -193,7 +183,7 @@ fun MovieCard(
             .fillMaxWidth()
             .clickable { onClick() }
     ) {
-        Row(modifier = Modifier.padding(12.dp)) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             if (posterUrl != null) {
                 AsyncImage(
                     model = ImageRequest.Builder(context)
@@ -222,6 +212,13 @@ fun MovieCard(
                     text = movie.overview.orEmpty(),
                     maxLines = 4,
                     style = MaterialTheme.typography.bodySmall
+                )
+            }
+
+            IconButton(onClick = onToggleFavorite) {
+                Icon(
+                    imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                    contentDescription = null
                 )
             }
         }
